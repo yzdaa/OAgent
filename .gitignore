@@ -38,10 +38,7 @@ wheels/
 *.sqlite
 
 # Data
-data/chroma_db/
-data/documents/
-data/visualizations/
-data/uploads/
+data/
 
 # Local model weights (large files; download separately)
 models/*/pytorch_model.bin
