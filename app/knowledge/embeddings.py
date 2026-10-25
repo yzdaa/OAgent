@@ -20,7 +20,7 @@ def get_embeddings(model_name: str = None) -> HuggingFaceEmbeddings:
         model = "BAAI/bge-small-zh-v1.5"
 
     return HuggingFaceEmbeddings(
-        model_name=model,
+        model_name=str(model),
         model_kwargs={'device': 'cpu'},
         encode_kwargs={'normalize_embeddings': True}
     )

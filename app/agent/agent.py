@@ -1,6 +1,6 @@
 """
 核心Agent封装
-基于LangChain ReAct Agent，集成记忆、工具调用、反思功能
+基于 LangChain Agent，集成记忆、工具调用、反思功能
 支持复杂任务的自动规划与多步骤执行
 """
 import os
@@ -21,32 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class OfficeAgent:
-    REACT_TEMPLATE = """你是一个企业智能办公助手，能够使用各种工具帮助用户完成办公任务。
-
-你可以使用的工具有：
-{tools}
-
-工具名称列表：{tool_names}
-
-请严格按照以下格式回答：
-
-Question: 用户的问题
-Thought: 思考需要做什么
-Action: 要使用的工具名称（必须是 [{tool_names}] 中的一个）
-Action Input: 工具的输入参数（JSON格式）
-Observation: 工具返回的结果
-... (这个 Thought/Action/Action Input/Observation 可以重复多次)
-Thought: 我现在知道最终答案了
-Final Answer: 对用户的最终回复
-
-开始！
-
-历史对话：
-{chat_history}
-
-Question: {input}
-Thought: {agent_scratchpad}"""
-
     def __init__(self, llm: Optional[ChatOpenAI] = None, enable_planner: bool = True):
         if llm:
             self.llm = llm
@@ -56,7 +30,6 @@ Thought: {agent_scratchpad}"""
         self.memory_manager = MemoryManager()
         self.tool_registry = ToolRegistry()
         self.reflection = Reflection(self.llm)
-        self.agent_executor = None
         self.enable_planner = enable_planner and (self.llm is not None)
         if self.enable_planner:
             self.task_planner = TaskPlanner(self.llm)
@@ -88,8 +61,7 @@ Thought: {agent_scratchpad}"""
         if not tools:
             raise ValueError("没有注册任何工具，请先注册工具")
 
-        # LangChain 1.x 原生 Agent。状态由底层 LangGraph 管理，不再使用
-        # AgentExecutor、ConversationBufferWindowMemory 或手写 ReAct prompt。
+        # LangChain 1.x 原生 Agent，状态由底层 LangGraph 管理。
         history = self.memory_manager.get_messages(session_id)
         messages = []
         for msg in history[-settings.SHORT_TERM_MEMORY_MAX_LENGTH:]:
@@ -160,7 +132,7 @@ Thought: {agent_scratchpad}"""
 
     def _execute_single_step(self, user_input: str, session_id: str,
                              user_id: Optional[str] = None) -> Dict[str, Any]:
-        """单步任务（ReAct Agent）"""
+        """单步任务（LangChain Agent）"""
         try:
             executor, history = self._create_agent(session_id)
             user_context = ""
@@ -216,7 +188,7 @@ Thought: {agent_scratchpad}"""
             logger.info("使用任务规划器处理请求")
             return self._execute_planned_task(user_input, session_id, user_id)
         else:
-            logger.info("使用ReAct Agent处理请求")
+            logger.info("使用 LangChain Agent 处理请求")
             return self._execute_single_step(user_input, session_id, user_id)
 
     def clear_session(self, session_id: str):

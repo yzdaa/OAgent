@@ -2,16 +2,11 @@
 FastAPI 接口服务
 提供RESTful API供企业内部系统调用
 """
-import sys
 import os
-
-# 添加项目根目录到Python路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-import uvicorn
 import logging
 
 from app import create_office_agent
@@ -160,5 +155,3 @@ async def oa_approval_callback(data: Dict[str, Any]):
     logger.info(f"收到OA审批回调: {data}")
     return {"status": "received"}
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,7 +1,6 @@
 """
-智能办公平台配置，
-
-使用 Pydantic Settings 管理所有配置项，支持从环境变量读取
+智能办公平台配置，使用 Pydantic Settings 管理所有配置项，支持从环境变量读取
+应用名称、LLM、数据库、向量数据库、工具配置
 """
 from functools import lru_cache
 from pathlib import Path

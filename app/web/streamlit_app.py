@@ -2,15 +2,11 @@
 Streamlit 可视化界面
 提供友好的操作界面，展示Agent执行过程
 """
-import sys
 import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import streamlit as st
 from typing import List, Dict, Any
 import uuid
-import json
 
 from app.agent import OfficeAgent
 from app import create_office_agent

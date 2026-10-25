@@ -35,8 +35,7 @@ class VectorStoreManager:
         except Exception as e:
             logger.error(f"向量数据库初始化失败: {e}", exc_info=True)
             self.vectorstore = None
-            # 你可以在此处提供更友好的提示，例如：
-            # print("向量数据库不可用，请联系管理员")
+        
 
     def ensure_ready(self):
         """如果之前初始化失败，可以重新尝试一次"""

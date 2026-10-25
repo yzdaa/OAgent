@@ -78,7 +78,6 @@ def main():
     
     # 清空旧数据（可选）
     # vector_store.delete_collection()
-    # vector_store = VectorStoreManager()  # 重新创建
     
     docs_dir = settings.KNOWLEDGE_BASE_DIR
     all_docs = []
