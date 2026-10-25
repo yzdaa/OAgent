@@ -11,7 +11,7 @@ COPY . .
 RUN mkdir -p data/knowledge_base data/documents data/visualizations data/chroma_db
 
 EXPOSE 8000
-EXPOSE 8501
+EXPOSE 8502
 
 # 启动命令可根据需要修改
-CMD ["sh", "-c", "uvicorn app.api.fastapi_app:app --host 0.0.0.0 --port 8000 & streamlit run app/web/streamlit_app.py --server.port 8501 --server.address 0.0.0.0"]
+CMD ["sh", "-c", "uvicorn app.api.fastapi_app:app --host 0.0.0.0 --port 8000 & streamlit run app/web/streamlit_app.py --server.port 8502 --server.address 0.0.0.0"]
