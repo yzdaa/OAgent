@@ -71,7 +71,7 @@ class DocumentGeneratorTool(BaseTool):
             self._llm = ChatOpenAI(
                 model=settings.LLM_MODEL_NAME,
                 api_key=settings.DASHSCOPE_API_KEY,
-                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                base_url=settings.LLM_BASE_URL,
             )
 
     def _generate_content_with_llm(self, doc_type: str, context: str) -> Dict[str, Any]:

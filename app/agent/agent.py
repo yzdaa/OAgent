@@ -43,7 +43,7 @@ class OfficeAgent:
         return ChatOpenAI(
             model=settings.LLM_MODEL_NAME,
             api_key=settings.DASHSCOPE_API_KEY,
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            base_url=settings.LLM_BASE_URL,
             temperature=settings.LLM_TEMPERATURE,
             max_tokens=settings.LLM_MAX_TOKENS,
         )

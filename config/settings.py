@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     # ========== LLM 配置 ==========
     # 通义千问 API 配置（可通过环境变量 DASHSCOPE_API_KEY 设置）
     DASHSCOPE_API_KEY: Optional[str] = None
-    LLM_MODEL_NAME: str = "qwen-plus"  # 可选: qwen-turbo, qwen-plus, qwen-max
+    LLM_BASE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    LLM_MODEL_NAME: str = "qwen3.8-flash"  # 可选: qwen-turbo, qwen-plus, qwen-max
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 2000
     
