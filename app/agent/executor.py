@@ -18,7 +18,7 @@ class TaskExecutor:
             tool = self.tool_registry.get_tool(name)
             if not tool:
                 error = f"错误：未找到工具 {name}"
-                results.append({"step": index, "tool": name, "error": error})
+                results.append({"step": index, "tool": name, "tool_input": params, "error": error})
                 output += f"\n[步骤{index} 失败] {error}"
                 continue
             try:

@@ -28,7 +28,11 @@ class AgentWorkflow:
                         "results": result["intermediate_steps"],
                     })
                     result["reflection"] = decision.model_dump()
-                    if decision.action == "update_step" and decision.updated_params:
+                    if decision.action == "retry":
+                        retry_step = {"tool": failed[0]["tool"], "params": failed[0].get("tool_input", {})}
+                        result["retry_result"] = self.executor.execute_plan(
+                            [retry_step], session_id, user_id)
+                    elif decision.action == "update_step" and decision.updated_params:
                         retry_step = {"tool": failed[0]["tool"], "params": decision.updated_params}
                         result["retry_result"] = self.executor.execute_plan(
                             [retry_step], session_id, user_id)
