@@ -38,8 +38,8 @@ class TaskExecutor:
         return {"output": output.strip() or "任务执行完成", "intermediate_steps": results,
                 "session_id": session_id, "planned": True, "steps_count": len(steps)}
 
-    def execute_agent(self, user_input: str, session_id: str,
-                      user_id: Optional[str] = None) -> Dict[str, Any]:
+    def invoke_agent(self, user_input: str, session_id: str,
+                     user_id: Optional[str] = None) -> Dict[str, Any]:
         # 记忆层只负责提供历史消息；Agent 本身负责当前请求中的工具决策。
         history = self.memory_manager.get_messages(session_id)
         messages = [("human" if item["role"] == "user" else "ai", item["content"])

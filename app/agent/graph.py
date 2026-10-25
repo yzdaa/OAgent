@@ -21,7 +21,7 @@ class AgentState(TypedDict, total=False):
     response: Dict[str, Any]
 
 
-class AgentWorkflow:
+class AgentGraph:
     """使用 StateGraph 编排计划、执行和恢复流程。"""
 
     COMPLEX_KEYWORDS = ("分析", "报告", "生成", "图表", "可视化", "工作总结", "会议纪要", "审批")
@@ -37,7 +37,7 @@ class AgentWorkflow:
         workflow.add_node("route", self._route)
         workflow.add_node("plan", self._plan)
         workflow.add_node("execute_plan", self._execute_plan)
-        workflow.add_node("execute_agent", self._execute_agent)
+        workflow.add_node("invoke_agent", self._invoke_agent)
         workflow.add_node("recover", self._recover)
         workflow.add_node("retry", self._retry)
         workflow.add_node("replan", self._replan)
@@ -45,7 +45,7 @@ class AgentWorkflow:
         workflow.add_edge(START, "route")
         workflow.add_conditional_edges(
             "route", self._route_next,
-            {"plan": "plan", "agent": "execute_agent"},
+            {"plan": "plan", "agent": "invoke_agent"},
         )
         workflow.add_edge("plan", "execute_plan")
         workflow.add_conditional_edges(
@@ -61,7 +61,7 @@ class AgentWorkflow:
             {"recover": "recover", "end": END},
         )
         workflow.add_edge("replan", "execute_plan")
-        workflow.add_edge("execute_agent", END)
+        workflow.add_edge("invoke_agent", END)
         return workflow.compile()
 
     def _route(self, state: AgentState) -> AgentState:
@@ -94,8 +94,8 @@ class AgentWorkflow:
             state["failed_step"] = failed[0]
         return state
 
-    def _execute_agent(self, state: AgentState) -> AgentState:
-        state["response"] = self.executor.execute_agent(
+    def _invoke_agent(self, state: AgentState) -> AgentState:
+        state["response"] = self.executor.invoke_agent(
             state["user_input"], state["session_id"], state.get("user_id")
         )
         return state

@@ -14,7 +14,7 @@ from .tool_registry import ToolRegistry
 from .reflection import ErrorPolicy, Reflection, ReflectionDecision
 from .planner import TaskPlanner
 from .executor import TaskExecutor
-from .graph import AgentWorkflow
+from .graph import AgentGraph
 
 __all__ = [
     "OfficeAgent",
@@ -24,6 +24,6 @@ __all__ = [
     "ReflectionDecision",
     "TaskPlanner",
     "TaskExecutor",
-    "AgentWorkflow",
+    "AgentGraph",
     "ErrorPolicy"
 ]

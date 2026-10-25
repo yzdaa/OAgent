@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 
 from config.settings import settings
 from .executor import TaskExecutor
-from .graph import AgentWorkflow
+from .graph import AgentGraph
 from .memory_manager import MemoryManager
 from .planner import TaskPlanner
 from .reflection import Reflection
@@ -28,7 +28,7 @@ class OfficeAgent:
         # Reflection 当前保留为扩展点，待接入 graph 的失败分支和重试流程。
         self.reflection = Reflection(self.llm)
         self.enable_planner = enable_planner and self.llm is not None
-        self.workflow = AgentWorkflow(
+        self.graph = AgentGraph(
             TaskPlanner(self.llm),
             TaskExecutor(self.memory_manager, self.tool_registry, self.llm),
             self.reflection,
@@ -63,7 +63,7 @@ class OfficeAgent:
         if use_planner is None:
             use_planner = self.enable_planner
         # 所有请求统一从 Workflow 进入，避免入口层绕过 Planner 或 Executor。
-        return self.workflow.run(user_input, session_id, user_id, use_planner)
+        return self.graph.run(user_input, session_id, user_id, use_planner)
 
     def clear_session(self, session_id: str):
         self.memory_manager.clear_session(session_id)
