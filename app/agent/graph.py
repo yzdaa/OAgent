@@ -56,7 +56,10 @@ class AgentWorkflow:
             "recover", self._after_recover,
             {"retry": "retry", "replan": "replan", "end": END},
         )
-        workflow.add_edge("retry", END)
+        workflow.add_conditional_edges(
+            "retry", self._after_execute,
+            {"recover": "recover", "end": END},
+        )
         workflow.add_edge("replan", "execute_plan")
         workflow.add_edge("execute_agent", END)
         return workflow.compile()
