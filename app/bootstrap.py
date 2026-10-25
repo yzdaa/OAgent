@@ -7,10 +7,12 @@ from app.tools import (
     DocumentGeneratorTool,
     KnowledgeQATool,
 )
+from config.settings import settings
 
 
 def create_office_agent() -> OfficeAgent:
     """创建配置完整的办公 Agent。"""
+    settings.ensure_runtime_dirs()
     agent = OfficeAgent()
     agent.register_tools(
         [
