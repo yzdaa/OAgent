@@ -11,7 +11,7 @@ tool_registry：注册、管理、调用 LangChain Tool。
 from .agent import OfficeAgent
 from .memory_manager import MemoryManager
 from .tool_registry import ToolRegistry
-from .reflection import Reflection, ReflectionDecision
+from .reflection import ErrorPolicy, Reflection, ReflectionDecision
 from .planner import TaskPlanner
 from .executor import TaskExecutor
 from .graph import AgentWorkflow
@@ -25,6 +25,6 @@ __all__ = [
     "ReflectionDecision",
     "TaskPlanner",
     "TaskExecutor",
-    "AgentWorkflow"
-    , "ErrorPolicy", "ErrorDecision"
+    "AgentWorkflow",
+    "ErrorPolicy"
 ]

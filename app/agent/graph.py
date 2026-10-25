@@ -1,8 +1,7 @@
 """Agent 流程编排。"""
 from typing import Any, Dict, Optional
 
-from config.settings import settings
-from .error_policy import ErrorPolicy
+from .reflection import Reflection
 
 
 class AgentWorkflow:
@@ -11,7 +10,6 @@ class AgentWorkflow:
 
     def __init__(self, planner, executor, reflection=None):
         self.planner, self.executor, self.reflection = planner, executor, reflection
-        self.error_policy = ErrorPolicy(settings.MAX_RETRY_COUNT)
 
     def run(self, user_input: str, session_id: str, user_id: Optional[str] = None,
             use_planner: Optional[bool] = None) -> Dict[str, Any]:
@@ -25,24 +23,25 @@ class AgentWorkflow:
                 result = self.executor.execute_plan(steps, session_id, user_id)
                 failed = [s for s in result["intermediate_steps"] if "error" in s]
                 if failed:
-                    # 明确的临时故障直接按规则处理，避免无意义的 LLM 调用。
-                    policy_decision = self.error_policy.classify(failed[0])
-                    result["error_policy"] = policy_decision.model_dump()
-                    if policy_decision.action == "retry":
+                    # Reflection 内部先走确定性规则，复杂错误才调用 LLM。
+                    decision = self.reflection.recover({
+                        "user_input": user_input,
+                        "plan": steps,
+                        "failed_step": failed[0],
+                        "failed_steps": failed,
+                        "results": result["intermediate_steps"],
+                    }) if self.reflection else None
+                    if decision:
+                        result["recovery"] = decision.model_dump()
+                    if decision and decision.action == "retry":
                         result["retry_result"] = self.executor.execute_plan(
                             [{"tool": failed[0]["tool"], "params": failed[0].get("tool_input", {})}],
                             session_id, user_id)
                         return result
-                    if policy_decision.action == "abort" or not self.reflection:
+                    if not decision or decision.action == "abort":
                         return result
 
                     # 仅对规则无法判断的复杂错误调用 Reflection。
-                    decision = self.reflection.decide({
-                        "user_input": user_input,
-                        "plan": steps,
-                        "failed_steps": failed,
-                        "results": result["intermediate_steps"],
-                    })
                     result["reflection"] = decision.model_dump()
                     if decision.action == "retry":
                         retry_step = {"tool": failed[0]["tool"], "params": failed[0].get("tool_input", {})}
