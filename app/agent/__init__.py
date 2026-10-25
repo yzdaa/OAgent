@@ -15,6 +15,7 @@ from .reflection import Reflection, ReflectionDecision
 from .planner import TaskPlanner
 from .executor import TaskExecutor
 from .graph import AgentWorkflow
+from .error_policy import ErrorPolicy, ErrorDecision
 
 __all__ = [
     "OfficeAgent",
@@ -25,4 +26,5 @@ __all__ = [
     "TaskPlanner",
     "TaskExecutor",
     "AgentWorkflow"
+    , "ErrorPolicy", "ErrorDecision"
 ]
