@@ -1,133 +1,35 @@
-"""
-反思模块
-任务执行失败时的自我反思与策略调整
-"""
-from typing import List, Dict, Any, Optional
+"""任务反思决策器：根据执行上下文决定下一步动作。"""
 import json
 import logging
-
-from langchain_openai import ChatOpenAI
+from typing import Any, Dict, Literal
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
+class ReflectionDecision(BaseModel):
+    """限制 LLM 只能返回受控的工作流动作。"""
+    action: Literal["retry", "update_step", "replan", "abort"]
+    reason: str = Field(description="决策原因")
+    updated_params: Dict[str, Any] = Field(default_factory=dict)
+
+
 class Reflection:
-    """反思器 - 分析失败原因并生成替代策略"""
-    
-    def __init__(self, llm: Optional[ChatOpenAI] = None):
-        self.llm = llm
-        self.max_retries = 3
-    
-    def analyze_failure(self, task: Dict[str, Any], error: str) -> Dict[str, Any]:
-        """
-        分析单个任务失败原因，返回调整后的任务参数
-        
-        Args:
-            task: 失败的任务字典
-            error: 错误信息
-        
-        Returns:
-            调整后的任务（可能是原参数或修改后的参数）
-        """
-        if self.llm:
-            return self._llm_based_analyze(task, error)
-        else:
-            return self._rule_based_analyze(task, error)
-    
-    def _llm_based_analyze(self, task: Dict[str, Any], error: str) -> Dict[str, Any]:
-        """基于LLM分析"""
-        prompt = f"""任务执行失败，请分析错误原因并提供修正后的任务参数。
-原始任务：{json.dumps(task, ensure_ascii=False)}
-错误信息：{error}
+    """把失败上下文转换为一个结构化流程决策。"""
+    def __init__(self, llm=None, max_retries: int = 3):
+        self.llm, self.max_retries = llm, max_retries
 
-请返回一个JSON对象，包含 tool 和修正后的 params。例如：
-{{"tool": "data_analyzer", "params": {{"action": "read_data", "file_path": "data/sales_data.xlsx"}}}}
-确保只返回有效的JSON。"""
-        
-        try:
-            response = self.llm.invoke(prompt).content
-            # 提取JSON对象
-            start = response.find('{')
-            end = response.rfind('}') + 1
-            if start != -1 and end > start:
-                adjusted = json.loads(response[start:end])
-                return adjusted
-        except Exception as e:
-            logger.error(f"LLM反思分析失败: {e}")
-        
-        # 降级：返回原任务（可增加简单修正）
-        return self._rule_based_analyze(task, error)
-    
-    def _rule_based_analyze(self, task: Dict[str, Any], error: str) -> Dict[str, Any]:
-        """基于规则修正"""
-        adjusted = task.copy()
-        error_lower = error.lower()
-        
-        if task["tool"] == "data_analyzer":
-            if "file" in error_lower and ("not found" in error_lower or "不存在" in error):
-                adjusted["params"]["file_path"] = "data/sales_data.xlsx"
-            elif "action" in error_lower:
-                adjusted["params"]["action"] = "read_data"  # 确保有效action
-        
-        elif task["tool"] == "api_tool":
-            if "system" in error_lower:
-                adjusted["params"]["system"] = "OA"  # 默认使用OA
-        
-        return adjusted
-    
-    def should_retry(self, error: str, retry_count: int) -> bool:
-        """判断是否应该重试"""
+    def decide(self, context: Dict[str, Any], retry_count: int = 0) -> ReflectionDecision:
         if retry_count >= self.max_retries:
-            return False
-        
-        retryable_errors = ["timeout", "connection", "network", "暂时", "超时", "重试"]
-        error_lower = error.lower()
-        return any(err in error_lower for err in retryable_errors)
-    
-    def generate_alternative_plan(self, original_tasks: List[Dict], error_context: str) -> List[Dict]:
-        """
-        当整体任务失败时，生成替代执行计划
-        
-        Args:
-            original_tasks: 原始任务列表
-            error_context: 错误上下文
-        
-        Returns:
-            替代任务列表
-        """
-        if self.llm:
-            prompt = f"""原始任务计划遇到问题，请生成一个替代方案。
-原始计划：{json.dumps(original_tasks, ensure_ascii=False)}
-错误描述：{error_context}
-
-请返回一个新的任务步骤列表，JSON数组格式。"""
-            try:
-                response = self.llm.invoke(prompt).content
-                start = response.find('[')
-                end = response.rfind(']') + 1
-                if start != -1 and end > start:
-                    return json.loads(response[start:end])
-            except Exception as e:
-                logger.error(f"LLM替代计划生成失败: {e}")
-        
-        # 降级：返回简化计划
-        return [
-            {"tool": "knowledge_qa", "params": {"question": error_context}}
-        ]
-    
-    def reflect_on_execution(self, tasks: List[Dict], results: List[Any]) -> str:
-        """对整个执行过程进行反思，输出总结经验"""
-        if self.llm:
-            prompt = f"""请对以下任务执行过程进行反思总结，指出成功之处和可改进点。
-任务：{json.dumps(tasks, ensure_ascii=False)}
-结果：{results}
-
-总结："""
-            try:
-                return self.llm.invoke(prompt).content.strip()
-            except Exception as e:
-                logger.error(f"LLM反思总结失败: {e}")
-        
-        # 简单统计
-        success = sum(1 for r in results if not str(r).startswith("Error") and "失败" not in str(r))
-        return f"任务执行完成：成功 {success} 项，失败 {len(results)-success} 项。"
+            return ReflectionDecision(action="abort", reason="已达到最大重试次数")
+        if not self.llm:
+            return ReflectionDecision(action="abort", reason="未配置 LLM，无法进行反思")
+        prompt = f"""请分析企业办公任务的执行失败，并选择下一步动作：
+retry=直接重试，update_step=修改当前步骤参数，replan=重新规划，abort=终止。
+只能返回结构化决策，不要执行工具。
+执行上下文：{json.dumps(context, ensure_ascii=False, default=str)}"""
+        try:
+            return self.llm.with_structured_output(ReflectionDecision).invoke(prompt)
+        except Exception as exc:
+            logger.error("反思决策失败: %s", exc)
+            return ReflectionDecision(action="abort", reason=f"反思失败: {exc}")
