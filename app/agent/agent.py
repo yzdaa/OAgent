@@ -22,13 +22,14 @@ class OfficeAgent:
     """企业办公 Agent 的统一外部入口。"""
 
     def __init__(self, llm: Optional[ChatOpenAI] = None, enable_planner: bool = True):
+        """组装 Agent 的基础组件和 LangGraph 工作流。"""
         # Agent 只负责组装组件，不在这里实现计划、执行或反思细节。
-        self.llm = llm or self._create_llm()
-        self.memory_manager = MemoryManager()
-        self.tool_registry = ToolRegistry()
+        self.llm = llm or self._create_llm()  # 统一的模型客户端；None 表示未配置模型。
+        self.memory_manager = MemoryManager()  # 会话历史和用户偏好存储。
+        self.tool_registry = ToolRegistry()  # Planner 与直接 Agent 共享的工具目录。
         # Reflection 负责 LangGraph 执行失败后的恢复决策。
         self.reflection = Reflection(self.llm)
-        self.enable_planner = enable_planner and self.llm is not None
+        self.enable_planner = enable_planner and self.llm is not None  # 是否允许自动规划。
         self.graph = AgentGraph(
             TaskPlanner(self.llm),
             TaskExecutor(self.memory_manager, self.tool_registry, self.llm),
@@ -37,6 +38,7 @@ class OfficeAgent:
         logger.info("OfficeAgent 初始化完成，Planner模式: %s", "开启" if self.enable_planner else "关闭")
 
     def _create_llm(self) -> Optional[ChatOpenAI]:
+        """根据配置创建 LLM 客户端；缺少 API Key 时返回 None。"""
         if not settings.llm_configured:
             logger.warning("未配置 API Key，Agent 将无法正常工作")
             return None
@@ -50,9 +52,11 @@ class OfficeAgent:
         )
 
     def register_tool(self, tool):
+        """注册一个工具，供 Planner 和直接 Agent 使用。"""
         self.tool_registry.register(tool)
 
     def register_tools(self, tools):
+        """批量注册工具；工具名由 ToolRegistry 管理。"""
         self.tool_registry.register_many(tools)
 
     def invoke(self, user_request: str, session_id: Optional[str] = None,
@@ -77,4 +81,5 @@ class OfficeAgent:
             raise
 
     def clear_session(self, session_id: str):
+        """清除指定会话的短期记忆和相关缓存。"""
         self.memory_manager.clear_session(session_id)

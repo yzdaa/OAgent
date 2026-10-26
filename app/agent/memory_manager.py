@@ -12,8 +12,6 @@ from app.integrations.storage import RedisClient, MySQLClient
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
-
-
 class MemoryManager:
     def __init__(self):
         # 外部存储采用懒连接，避免启动时等待 Redis/MySQL 网络连接。

@@ -8,6 +8,7 @@ import json
 import logging
 from langchain_openai import ChatOpenAI
 from config.settings import settings
+from .schemas import PlanStep
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +17,11 @@ class TaskPlanner:
     """任务规划器 - 将复杂任务拆解为可执行的步骤"""
 
     def __init__(self, llm: Optional[ChatOpenAI] = None):
-        self.llm = llm
+        """创建规划器；llm 为空时仅使用规则规划。"""
+        self.llm = llm  # 规划模型；为空时只使用规则兜底。
 
     def plan(self, user_request: str, available_tools: List[str]) -> List[Dict[str, Any]]:
+        """生成统一的 tool_name/tool_arguments 计划，失败时使用规则兜底。"""
         """
         规划任务步骤：优先使用 LLM，失败时回退到规则
         """
@@ -32,6 +35,7 @@ class TaskPlanner:
         return self._rule_based_plan(user_request)
 
     def _llm_based_plan(self, user_request: str, available_tools: List[str]) -> Optional[List[Dict[str, Any]]]:
+        """请求 LLM 生成计划，并校验 JSON 结构和工具名称。"""
         """基于LLM进行规划，失败返回 None"""
         tools_str = ", ".join(available_tools)
         prompt = f"""你是一个任务规划专家。用户请求需要使用以下工具来完成任务：
@@ -56,14 +60,21 @@ class TaskPlanner:
             if start != -1 and end > start:
                 # model_response 是 LLM 原始文本；plan_json 才是待解析的 JSON 片段。
                 plan_json = model_response[start:end]
-                plan_steps = json.loads(plan_json)
+                raw_steps = json.loads(plan_json)
+                # 先用 Pydantic 统一字段，再检查工具名，拒绝模型生成的虚假工具或动作。
+                plan_steps = [PlanStep.model_validate(step) for step in raw_steps]
+                invalid_tools = [step.tool_name for step in plan_steps
+                                 if step.tool_name not in available_tools]
+                if invalid_tools:
+                    raise ValueError(f"计划包含未注册工具: {invalid_tools}")
                 logger.info(f"LLM规划生成 {len(plan_steps)} 个步骤")
-                return plan_steps
+                return [step.model_dump() for step in plan_steps]
         except Exception as e:
             logger.error(f"LLM规划失败: {e}")
         return None
 
     def _extract_file_path(self, user_request: str) -> str:
+        """从用户请求中提取表格路径；未找到时返回默认数据路径。"""
         """从用户输入中提取文件路径（供规则使用）"""
         import re
         patterns = [
@@ -80,6 +91,7 @@ class TaskPlanner:
         return "data/sales_data.xlsx"
 
     def _rule_based_plan(self, user_request: str) -> List[Dict[str, Any]]:
+        """根据关键词生成确定性计划，作为 LLM 规划失败时的兜底。"""
         """基于规则的规划（兜底）"""
         user_request_lower = user_request.lower()
         file_path = self._extract_file_path(user_request)

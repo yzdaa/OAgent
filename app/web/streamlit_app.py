@@ -63,6 +63,10 @@ if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 if "user_id" not in st.session_state:
     st.session_state.user_id = "user_" + str(uuid.uuid4())[:8]
+if "display_name" not in st.session_state:
+    st.session_state.display_name = "访客"
+if "session_title" not in st.session_state:
+    st.session_state.session_title = "新会话"
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "uploaded_file_path" not in st.session_state:
@@ -75,12 +79,15 @@ with st.sidebar:
     
     # 会话信息
     st.markdown("#### 当前会话")
+    st.session_state.display_name = st.text_input("用户名称", st.session_state.display_name)
+    st.session_state.session_title = st.text_input("会话名称", st.session_state.session_title)
     st.caption(f"会话 · `{st.session_state.session_id[:8]}…`")
     st.caption(f"用户 · `{st.session_state.user_id}`")
     
     if st.button("🔄 新建会话"):
         agent.clear_session(st.session_state.session_id)
         st.session_state.session_id = str(uuid.uuid4())
+        st.session_state.session_title = "新会话"
         st.session_state.messages = []
         st.session_state.uploaded_file_path = None
         st.rerun()
