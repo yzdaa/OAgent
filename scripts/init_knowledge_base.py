@@ -8,7 +8,7 @@ import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.knowledge import UniversalDocumentLoader, VectorStoreManager
+from app.knowledge import UniversalDocumentLoader, get_vector_store
 from config.settings import settings
 
 # 创建示例文档
@@ -74,7 +74,7 @@ def main():
     
     # 加载并导入
     loader = UniversalDocumentLoader()
-    vector_store = VectorStoreManager()
+    vector_store = get_vector_store()
     
     # 清空旧数据（可选）
     # vector_store.delete_collection()

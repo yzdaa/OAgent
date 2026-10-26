@@ -5,7 +5,7 @@
 from typing import List, Optional
 from langchain_core.documents import Document
 
-from .vector_store import VectorStoreManager
+from .vector_store import get_vector_store
 
 
 class KnowledgeRetriever:
@@ -18,7 +18,7 @@ class KnowledgeRetriever:
         Args:
             collection_name: 向量数据库集合名称
         """
-        self.vector_store = VectorStoreManager(collection_name)
+        self.vector_store = get_vector_store(collection_name)
     
     def retrieve(self, query: str, top_k: int = 4) -> List[Document]:
         """

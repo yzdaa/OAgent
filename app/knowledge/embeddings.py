@@ -4,12 +4,15 @@ Embedding 模型加载模块
 """
 import os
 import logging
+from functools import lru_cache
 from langchain_huggingface import HuggingFaceEmbeddings
 from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+@lru_cache(maxsize=2)
 def get_embeddings(model_name: str = None) -> HuggingFaceEmbeddings:
+    """按模型路径缓存 Embedding，避免 Agent 和知识库页面重复加载模型。"""
     model = model_name or settings.EMBEDDING_MODEL_NAME
 
     # 检查本地路径是否存在

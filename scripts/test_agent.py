@@ -22,7 +22,7 @@ def test_data_analysis(agent):
     """测试数据分析功能"""
     print_separator("测试1: 数据分析 + 生成报告")
 
-    result = agent.run(
+    result = agent.invoke(
         "分析销售数据并生成报告",
         use_planner=True
     )
@@ -38,7 +38,7 @@ def test_meeting_notes(agent):
     """测试会议纪要生成"""
     print_separator("测试2: 生成会议纪要")
 
-    result = agent.run(
+    result = agent.invoke(
         "生成项目评审会议的会议纪要",
         use_planner=True
     )
@@ -51,7 +51,7 @@ def test_work_summary(agent):
     """测试工作总结生成"""
     print_separator("测试3: 生成工作总结")
 
-    result = agent.run(
+    result = agent.invoke(
         "生成本月工作总结",
         use_planner=True
     )
@@ -64,7 +64,7 @@ def test_approval(agent):
     """测试审批流程"""
     print_separator("测试4: 发起请假审批")
 
-    result = agent.run(
+    result = agent.invoke(
         "我想申请年假5天",
         use_planner=True
     )
@@ -77,7 +77,7 @@ def test_knowledge_qa(agent):
     """测试知识问答"""
     print_separator("测试5: 企业知识问答")
 
-    result = agent.run(
+    result = agent.invoke(
         "公司的年假政策是什么？",
         use_planner=False
     )
@@ -90,7 +90,7 @@ def test_approval_query(agent):
     """测试审批查询"""
     print_separator("测试6: 查询审批状态")
 
-    result = agent.run(
+    result = agent.invoke(
         "查看OA系统状态",
         use_planner=True
     )

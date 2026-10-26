@@ -5,7 +5,6 @@ Streamlit 可视化界面
 import os
 
 import streamlit as st
-from typing import List, Dict, Any
 import uuid
 
 from app.agent import OfficeAgent
@@ -18,13 +17,39 @@ st.set_page_config(
     layout="wide"
 )
 
+# 统一产品视觉：Streamlit 负责交互，CSS 负责聊天产品的层次和留白。
+st.markdown("""
+<style>
+    .stApp { background: #f7f9fc; color: #1f2937; }
+    [data-testid="stSidebar"] { background: #ffffff; border-right: 1px solid #e5e7eb; }
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span { color: #344054 !important; }
+    [data-testid="stSidebar"] .stRadio label { padding: .55rem .7rem; border-radius: 9px; }
+    [data-testid="stSidebar"] .stRadio label:hover { background: #f2f4f7; }
+    .hero { padding: 1.35rem 1.6rem; border: 1px solid #dbe7f5; border-radius: 16px; background: #ffffff; color: #172b4d; margin-bottom: 1.25rem; box-shadow: 0 4px 14px rgba(16,24,40,.05); }
+    .hero h1 { margin: 0; font-size: 1.9rem; letter-spacing: -.03em; color: #172b4d; }
+    .hero p { margin: .45rem 0 0; color: #667085; }
+    .status-card { padding: .9rem 1rem; border: 1px solid #dbe7f5; border-radius: 12px; background: #ffffff; color: #344054; margin-bottom: 1rem; }
+    div[data-testid="stChatMessage"] { border: 1px solid #eaecf0; border-radius: 14px; margin-bottom: .7rem; background: #ffffff; box-shadow: 0 2px 8px rgba(16,24,40,.035); }
+    div[data-testid="stChatInput"] { background: #ffffff; border: 1px solid #cdd5df; border-radius: 14px; }
+    div[data-testid="stExpander"] { border-radius: 12px; border-color: #d0d5dd; background: #ffffff; }
+    div[data-testid="stButton"] > button[kind="primary"] { background: #2563eb; border-color: #2563eb; color: #ffffff; }
+    div[data-testid="stButton"] > button[kind="primary"]:hover { background: #1d4ed8; border-color: #1d4ed8; }
+    .block-container { max-width: 1180px; padding-top: 2rem; }
+</style>
+""", unsafe_allow_html=True)
+
 # ========== 向量存储缓存 ==========
-from app.knowledge import VectorStoreManager
+from app.knowledge import get_vector_store
 
 @st.cache_resource
 def get_vector_store():
-    """缓存向量存储实例，避免重复加载模型和数据库"""
-    return VectorStoreManager()
+    """仅在进入知识库管理页面时加载向量存储。"""
+    return get_vector_store()
 
 # 初始化Agent（使用缓存避免重复初始化）
 @st.cache_resource
@@ -45,13 +70,13 @@ if "uploaded_file_path" not in st.session_state:
 
 # ========== 侧边栏 ==========
 with st.sidebar:
-    st.title("🤖 办公助手")
-    st.markdown("---")
+    st.markdown("## 🤖 办公助手")
+    st.caption("企业智能工作台")
     
     # 会话信息
-    st.subheader("会话信息")
-    st.text(f"会话ID: {st.session_state.session_id[:8]}...")
-    st.text(f"用户ID: {st.session_state.user_id}")
+    st.markdown("#### 当前会话")
+    st.caption(f"会话 · `{st.session_state.session_id[:8]}…`")
+    st.caption(f"用户 · `{st.session_state.user_id}`")
     
     if st.button("🔄 新建会话"):
         agent.clear_session(st.session_state.session_id)
@@ -60,10 +85,8 @@ with st.sidebar:
         st.session_state.uploaded_file_path = None
         st.rerun()
     
-    st.markdown("---")
-    
-    # 功能导航
-    st.subheader("功能模块")
+    st.divider()
+    st.markdown("#### 工作区")
     mode = st.radio(
         "选择模式",
         ["💬 智能对话", "🔧 工具测试", "📚 知识库管理", "⚙️ 用户偏好"]
@@ -73,14 +96,25 @@ with st.sidebar:
     if mode != "💬 智能对话":
         st.session_state.uploaded_file_path = None
     
-    st.markdown("---")
-    st.caption(f"版本: 2.0.0")
+    st.divider()
+    st.caption("OAgent · v2.0")
 
 # ========== 主界面 ==========
-st.title("企业智能办公助手")
-st.caption("基于 Agent 的智能办公平台 - 数据分析、文档生成、流程审批、知识问答")
+st.markdown("""
+<div class="hero">
+  <h1>企业智能办公助手</h1>
+  <p>把数据分析、文档生成、流程审批和企业知识问答放在一个工作台里。</p>
+</div>
+""", unsafe_allow_html=True)
 
 if mode == "💬 智能对话":
+    left, right = st.columns([5, 1])
+    with left:
+        st.markdown("#### 对话工作区")
+    with right:
+        st.caption("● 在线")
+    if not st.session_state.messages:
+        st.markdown('<div class="status-card">👋 你好！可以直接描述任务，也可以上传 Excel 或 CSV 表格文件。</div>', unsafe_allow_html=True)
     # 显示历史消息（Markdown 格式）
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
@@ -122,7 +156,7 @@ if mode == "💬 智能对话":
             # 调用 Agent
             with st.chat_message("assistant"):
                 with st.spinner("正在思考中..."):
-                    result = agent.run(
+                    result = agent.invoke(
                         final_input,
                         st.session_state.session_id,
                         st.session_state.user_id
@@ -130,7 +164,7 @@ if mode == "💬 智能对话":
                 
                 # ---- 实时展示区域 ----
                 output_text = result.get("output", "")
-                st.markdown("### 📝 执行结果")
+                st.markdown("#### 📝 执行结果")
                 # 结果区域用 Markdown 渲染，支持列表、标题等
                 if len(output_text) > 800:
                     with st.expander("📄 完整结果", expanded=False):
@@ -138,19 +172,19 @@ if mode == "💬 智能对话":
                 else:
                     st.markdown(output_text)
 
-                # 执行步骤折叠展示
-                if result.get("intermediate_steps"):
+                # 执行步骤折叠展示：默认隐藏技术细节，排查问题时再展开。
+                if result.get("step_results"):
                     with st.expander("📋 查看执行步骤", expanded=False):
-                        for i, step in enumerate(result["intermediate_steps"], 1):
+                        for i, step in enumerate(result["step_results"], 1):
                             # 兼容元组格式（ReAct）和字典格式（规划器）
                             if isinstance(step, tuple):
                                 action, obs = step[0], step[1]
                                 tool_name = action.tool
                                 tool_input = action.tool_input if hasattr(action, 'tool_input') else {}
                             else:
-                                tool_name = step.get("tool", "未知工具")
-                                tool_input = step.get("tool_input", {})
-                                obs = step.get("observation", "")
+                                tool_name = step.get("tool_name", "未知工具")
+                                tool_input = step.get("tool_arguments", {})
+                                obs = step.get("tool_result", "")
 
                             st.markdown(f"**步骤 {i}：{tool_name}**")
                             if tool_input:
@@ -174,23 +208,23 @@ elif mode == "🔧 工具测试":
     tool_descriptions = {
         "data_analyzer": {
             "name": "📊 数据分析工具",
-            "description": "支持读取Excel/CSV数据文件，进行数据清洗、统计分析和可视化展示，可自动生成分析报告文档。",
+            "description": "支持读取 Excel/CSV 数据文件，进行数据清洗、统计分析和可视化展示，可自动生成分析报告文档。",
             "features": ["数据读取", "数据清洗", "统计分析", "可视化图表", "报告生成"]
         },
         "document_generator": {
             "name": "📝 文档生成工具",
-            "description": "基于AI智能生成各类办公文档，支持会议纪要、工作总结、业务报告等多种文档类型。",
-            "features": ["会议纪要", "工作总结", "业务报告", "AI内容生成"]
+            "description": "基于人工智能生成各类办公文档，支持会议纪要、工作总结、业务报告等多种文档类型。",
+            "features": ["会议纪要", "工作总结", "业务报告", "智能内容生成"]
         },
         "api_tool": {
             "name": "🔗 API调用工具",
             "description": "对接企业内部系统（OA/CRM），支持审批流程发起、状态查询、用户信息获取等功能。",
-            "features": ["流程审批", "状态查询", "OA系统", "CRM系统"]
+            "features": ["流程审批", "状态查询", "OA 系统", "CRM 系统"]
         },
         "knowledge_qa": {
             "name": "💡 知识问答工具",
             "description": "基于企业知识库进行智能问答，支持查询企业规章制度、产品知识等信息。",
-            "features": ["制度查询", "产品知识", "RAG检索", "智能问答"]
+            "features": ["制度查询", "产品知识", "知识库检索", "智能问答"]
         }
     }
     
@@ -213,7 +247,12 @@ elif mode == "🔧 工具测试":
                 st.markdown("#### 🎯 操作参数")
                 col1, col2 = st.columns(2)
                 with col1:
-                    action = st.selectbox("操作类型", ["read_data", "clean_data", "analyze", "visualize", "generate_report"])
+                    action = st.selectbox("操作类型", [
+                        ("读取数据", "read_data"), ("清洗数据", "clean_data"),
+                        ("数据分析", "analyze"), ("生成图表", "visualize"),
+                        ("生成分析报告", "generate_report")
+                    ], format_func=lambda item: item[0])
+                    action = action[1]
                 with col2:
                     file_path = st.text_input("文件路径", "data/sales_data.xlsx")
                 auto_generate_doc = st.checkbox("📄 自动生成Word报告", value=True)
@@ -233,11 +272,11 @@ elif mode == "🔧 工具测试":
                 doc_type = doc_type[1] if isinstance(doc_type, tuple) else doc_type
                 
                 title = st.text_input("📝 文档标题")
-                context = st.text_area("📋 内容描述（用于AI生成）", height=150, placeholder="请输入会议内容、工作详情等信息，AI将据此生成文档...")
-                auto_generate = st.checkbox("✨ 使用AI自动生成内容", value=True)
+                context = st.text_area("📋 内容描述（用于智能生成）", height=150, placeholder="请输入会议内容、工作详情等信息，系统将据此生成文档...")
+                auto_generate = st.checkbox("✨ 使用智能生成内容", value=True)
                 
                 if st.button("🚀 生成文档", type="primary"):
-                    with st.spinner("AI正在生成文档..."):
+                    with st.spinner("正在智能生成文档..."):
                         result = tool._run(doc_type=doc_type, title=title, context=context, auto_generate=auto_generate)
                     st.success(result)
         
@@ -292,7 +331,7 @@ elif mode == "🔧 工具测试":
                 top_k = st.slider("🔍 检索数量", 1, 10, 4, help="返回最相关的文档片段数量")
                 
                 if st.button("🚀 提问", type="primary"):
-                    with st.spinner("正在检索知识库..."):
+                    with st.spinner("正在检索企业知识库..."):
                         result = tool._run(question=question, top_k=top_k)
                     with st.container(border=True):
                         st.markdown("#### 📋 回答结果")

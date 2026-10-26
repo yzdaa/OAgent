@@ -44,13 +44,13 @@ class KnowledgeQATool(BaseTool):
     args_schema: Type[BaseModel] = KnowledgeQAInput
 
     # 使用 PrivateAttr 定义“私有”属性，绕过 Pydantic 验证
-    _retriever: KnowledgeRetriever = PrivateAttr()
+    _retriever: Optional[KnowledgeRetriever] = PrivateAttr(default=None)
     _llm: Optional[object] = PrivateAttr(default=None)
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # 使用默认集合名称，确保与前端一致
-        self._retriever = KnowledgeRetriever(collection_name="enterprise_knowledge")
+        # 检索器延迟到第一次知识库问答时创建，避免普通对话启动时加载 BGE 和 Chroma。
+        self._retriever = None
         self._llm = None
         self._init_llm()
     
@@ -72,12 +72,18 @@ class KnowledgeQATool(BaseTool):
         except Exception as e:
             logger.error(f"LLM初始化失败: {e}")
             self._llm = None
+
+    def _get_retriever(self) -> KnowledgeRetriever:
+        """按需创建检索器；同一工具实例后续请求复用它。"""
+        if self._retriever is None:
+            self._retriever = KnowledgeRetriever(collection_name="enterprise_knowledge")
+        return self._retriever
     
     def _execute(self, question: str, top_k: int = 4, **kwargs) -> str:
         """执行知识问答"""
         try:
             # 1. 检索相关文档
-            docs = self._retriever.retrieve(question, top_k=top_k)
+            docs = self._get_retriever().retrieve(question, top_k=top_k)
             
             if not docs:
                 return "抱歉，在知识库中未找到与您问题相关的信息。请联系管理员补充相关知识。"

@@ -13,6 +13,7 @@ from .memory_manager import MemoryManager
 from .planner import TaskPlanner
 from .reflection import Reflection
 from .tool_registry import ToolRegistry
+from app.observability import record_event
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class OfficeAgent:
         self.llm = llm or self._create_llm()
         self.memory_manager = MemoryManager()
         self.tool_registry = ToolRegistry()
-        # Reflection 当前保留为扩展点，待接入 graph 的失败分支和重试流程。
+        # Reflection 负责 LangGraph 执行失败后的恢复决策。
         self.reflection = Reflection(self.llm)
         self.enable_planner = enable_planner and self.llm is not None
         self.graph = AgentGraph(
@@ -54,16 +55,26 @@ class OfficeAgent:
     def register_tools(self, tools):
         self.tool_registry.register_many(tools)
 
-    def run(self, user_input: str, session_id: Optional[str] = None,
+    def invoke(self, user_request: str, session_id: Optional[str] = None,
             user_id: Optional[str] = None, use_planner: Optional[bool] = None):
+        """接收统一命名的用户请求，并交给 LangGraph 执行。"""
         session_id = session_id or str(uuid.uuid4())
+        record_event("request.received", session_id=session_id, user_id=user_id,
+                     user_request=user_request, use_planner=use_planner)
         if not self.llm:
             return {"output": "LLM未初始化，请配置 API Key 后重试。",
-                    "intermediate_steps": [], "session_id": session_id}
+                    "step_results": [], "session_id": session_id}
         if use_planner is None:
-            use_planner = self.enable_planner
-        # 所有请求统一从 Workflow 进入，避免入口层绕过 Planner 或 Executor。
-        return self.graph.run(user_input, session_id, user_id, use_planner)
+            # 未显式指定时交给 Graph 根据请求内容判断；关闭 Planner 时才强制走直接 Agent。
+            use_planner = None if self.enable_planner else False
+        # 所有请求统一从 Graph 进入；Graph 内部只为复杂任务启用规划流程。
+        # Agent 层只负责对外入口；具体路由、规划、执行和恢复由 Graph 负责。
+        try:
+            return self.graph.invoke(user_request, session_id, user_id, use_planner)
+        except Exception as exc:
+            record_event("request.failed", session_id=session_id, user_id=user_id,
+                         user_request=user_request, error=str(exc))
+            raise
 
     def clear_session(self, session_id: str):
         self.memory_manager.clear_session(session_id)

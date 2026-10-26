@@ -16,9 +16,22 @@ logger = logging.getLogger(__name__)
 
 class MemoryManager:
     def __init__(self):
-        self.redis = RedisClient()
-        self.mysql = MySQLClient()
+        # 外部存储采用懒连接，避免启动时等待 Redis/MySQL 网络连接。
+        self._redis = None
+        self._mysql = None
         self._short_term_cache: Dict[str, List[Dict[str, Any]]] = {}
+
+    @property
+    def redis(self) -> RedisClient:
+        if self._redis is None:
+            self._redis = RedisClient()
+        return self._redis
+
+    @property
+    def mysql(self) -> MySQLClient:
+        if self._mysql is None:
+            self._mysql = MySQLClient()
+        return self._mysql
 
     def add_message(self, session_id: str, role: str, content: str) -> None:
         message = {

@@ -48,7 +48,7 @@ class UniversalDocumentLoader:
         
         if ext == '.pdf':
             return self._load_pdf(file_path, metadata)
-        elif ext in ['.docx', '.doc']:
+        elif ext == '.docx':
             return self._load_docx(file_path, metadata)
         elif ext in ['.xlsx', '.xls']:
             return self._load_excel(file_path, metadata)
@@ -61,26 +61,26 @@ class UniversalDocumentLoader:
     def _load_pdf(self, file_path: str, metadata: Optional[dict] = None) -> List[Document]:
         """加载 PDF 文件"""
         documents = []
-        base_metadata = metadata or {}
-        base_metadata.update({"source": file_path, "file_type": "pdf"})
+        # 复制元数据，避免修改调用方传入的字典。
+        base_metadata = {**(metadata or {}), "source": file_path, "file_type": "pdf"}
         
         try:
             doc = fitz.open(file_path)
-            full_text = ""
-            
             for page_num, page in enumerate(doc):
                 page_text = page.get_text()
-                if page_text.strip():
-                    full_text += f"\n--- 第 {page_num + 1} 页 ---\n{page_text}"
+                if not page_text.strip():
+                    continue
+                # 每页独立切块，保留页码，检索结果才能准确定位原文。
+                chunks = self.text_splitter.split_text(page_text)
+                for chunk_index, chunk in enumerate(chunks):
+                    meta = {
+                        **base_metadata,
+                        "page": page_num + 1,
+                        "chunk_index": chunk_index,
+                    }
+                    documents.append(Document(page_content=chunk, metadata=meta))
             
             doc.close()
-            
-            # 分块
-            chunks = self.text_splitter.split_text(full_text)
-            for i, chunk in enumerate(chunks):
-                meta = base_metadata.copy()
-                meta["chunk_index"] = i
-                documents.append(Document(page_content=chunk, metadata=meta))
             
             logger.info(f"PDF 加载完成: {file_path}, 共 {len(documents)} 个片段")
         except Exception as e:
@@ -91,8 +91,7 @@ class UniversalDocumentLoader:
     def _load_docx(self, file_path: str, metadata: Optional[dict] = None) -> List[Document]:
         """加载 Word 文档"""
         documents = []
-        base_metadata = metadata or {}
-        base_metadata.update({"source": file_path, "file_type": "docx"})
+        base_metadata = {**(metadata or {}), "source": file_path, "file_type": "docx"}
         
         try:
             doc = DocxDocument(file_path)
@@ -121,27 +120,32 @@ class UniversalDocumentLoader:
     def _load_excel(self, file_path: str, metadata: Optional[dict] = None) -> List[Document]:
         """加载 Excel 文件"""
         documents = []
-        base_metadata = metadata or {}
-        base_metadata.update({"source": file_path, "file_type": "excel"})
+        base_metadata = {**(metadata or {}), "source": file_path, "file_type": "excel"}
         
         try:
             excel_file = pd.ExcelFile(file_path)
             for sheet_name in excel_file.sheet_names:
                 df = pd.read_excel(excel_file, sheet_name=sheet_name)
                 
-                # 将DataFrame转换为文本描述
-                sheet_content = f"工作表: {sheet_name}\n"
-                sheet_content += f"列名: {', '.join(df.columns.astype(str))}\n"
-                sheet_content += "数据内容:\n"
-                
-                # 只取前100行避免过大
-                for idx, row in df.head(100).iterrows():
-                    row_text = " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
-                    sheet_content += f"第{idx+1}行: {row_text}\n"
-                
-                meta = base_metadata.copy()
-                meta["sheet_name"] = sheet_name
-                documents.append(Document(page_content=sheet_content, metadata=meta))
+                # 按行分块，避免大表格被截断；每个块保存行范围，便于追溯来源。
+                columns = ", ".join(df.columns.astype(str))
+                rows_per_chunk = 50
+                for start in range(0, len(df), rows_per_chunk):
+                    part = df.iloc[start:start + rows_per_chunk]
+                    lines = [f"工作表: {sheet_name}", f"列名: {columns}", "数据内容:"]
+                    for row_index, row in part.iterrows():
+                        row_text = " | ".join(
+                            f"{col}: {val}" for col, val in row.items() if pd.notna(val)
+                        )
+                        lines.append(f"第{row_index + 1}行: {row_text}")
+                    meta = {
+                        **base_metadata,
+                        "sheet_name": sheet_name,
+                        "row_start": start + 1,
+                        "row_end": start + len(part),
+                        "chunk_index": start // rows_per_chunk,
+                    }
+                    documents.append(Document(page_content="\n".join(lines), metadata=meta))
             
             logger.info(f"Excel 加载完成: {file_path}, 共 {len(documents)} 个工作表")
         except Exception as e:
@@ -152,8 +156,7 @@ class UniversalDocumentLoader:
     def _load_txt(self, file_path: str, metadata: Optional[dict] = None) -> List[Document]:
         """加载文本文件（支持多种编码）"""
         documents = []
-        base_metadata = metadata or {}
-        base_metadata.update({"source": file_path, "file_type": "txt"})
+        base_metadata = {**(metadata or {}), "source": file_path, "file_type": "txt"}
         
         # 尝试多种编码
         encodings = ['utf-8', 'gbk', 'gb2312', 'latin-1']

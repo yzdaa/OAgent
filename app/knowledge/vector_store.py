@@ -3,6 +3,7 @@
 """
 import os
 import logging
+from functools import lru_cache
 from typing import List, Optional
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -100,3 +101,9 @@ class VectorStoreManager:
         if not self.ensure_ready():
             return None
         return self.vectorstore.as_retriever(search_kwargs=search_kwargs or {"k": 4})
+
+
+@lru_cache(maxsize=4)
+def get_vector_store(collection_name: str = "enterprise_knowledge") -> VectorStoreManager:
+    """缓存向量库实例，避免 Agent、API 和网页各自重复打开同一集合。"""
+    return VectorStoreManager(collection_name)

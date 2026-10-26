@@ -4,3 +4,6 @@ headless = true
 
 [browser]
 serverAddress = "localhost"
+
+[client]
+toolbarMode = "minimal"
